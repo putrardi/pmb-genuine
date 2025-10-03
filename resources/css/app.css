@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Smooth card hover */
+.card-hover { transition: transform .2s ease, box-shadow .2s ease; }
+.card-hover:hover { transform: translateY(-2px); }
+
+/* Subtle glass */
+.glass { background: rgba(255,255,255,.8); backdrop-filter: blur(6px); }
+.dark .glass { background: rgba(17,24,39,.6); }
+
+/* Input besar */
+.input-lg { @apply w-full h-11 rounded-xl border border-slate-300 text-slate-800 text-base px-4
+             placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500; }
+/* Label rapi */
+.label-sm { @apply block text-sm font-medium text-slate-700 mb-1; }
