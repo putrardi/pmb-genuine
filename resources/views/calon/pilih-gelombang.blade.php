@@ -1,10 +1,30 @@
+{{-- resources/views/calon/pilih-gelombang.blade.php --}}
 <x-guest-layout>
+  @php
+    /** @var \App\Domain\Pendaftaran\Models\Pendaftaran $pendaftaran */
+    $locked             = $pendaftaran->isLockedForEdits(); // true utk SUBMITTED/VERIFIED
+    $selectedGelombang  = old('gelombang_id', $pendaftaran->gelombang_id);
+    $selectedProdi      = old('prodi_id', $pendaftaran->prodi_id);
+  @endphp
+
   <div class="mx-auto max-w-4xl px-4 py-8">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-xl font-semibold">Pilih Gelombang & Program Studi</h1>
-      <a href="{{ route('pendaftaran.dashboard') }}" class="rounded-lg bg-slate-200 px-3 py-1.5 text-slate-800 hover:bg-slate-300">Kembali</a>
+      <a href="{{ route('pendaftaran.dashboard') }}"
+         class="rounded-lg bg-slate-200 px-3 py-1.5 text-slate-800 hover:bg-slate-300">Kembali</a>
     </div>
 
+    {{-- Flash & errors --}}
+    @if (session('success'))
+      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-700">
+        {{ session('success') }}
+      </div>
+    @endif
+    @if (session('error'))
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-red-700">
+        {{ session('error') }}
+      </div>
+    @endif
     @if ($errors->any())
       <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-red-700">
         <ul class="list-disc pl-5">
@@ -12,8 +32,12 @@
         </ul>
       </div>
     @endif
-    @if (session('success'))
-      <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-700">{{ session('success') }}</div>
+
+    {{-- Locked banner --}}
+    @if($locked)
+      <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+        Pendaftaran telah {{ strtoupper($pendaftaran->status) }} dan dikunci. Perubahan tidak diizinkan.
+      </div>
     @endif
 
     <form method="POST" action="{{ route('calon.simpan-gelombang') }}" class="space-y-5">
@@ -24,12 +48,17 @@
         <div class="text-sm font-semibold">Pilih Gelombang (wajib)</div>
         @forelse ($gelombang as $g)
           <label class="flex w-full items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-indigo-300">
-            <input type="radio" name="gelombang_id" value="{{ $g->id }}" class="mt-1 h-4 w-4"
-                   @checked(old('gelombang_id', $pendaftaran->gelombang_id) == $g->id)>
+            <input type="radio"
+                   name="gelombang_id"
+                   value="{{ $g->id }}"
+                   class="mt-1 h-4 w-4"
+                   @checked((int)$selectedGelombang === (int)$g->id)
+                   @disabled($locked)>
             <div>
               <div class="font-semibold">{{ $g->nama }}</div>
               <div class="text-sm text-slate-600">
-                {{ $g->mulai->format('d M Y') }} – {{ $g->selesai->format('d M Y') }} · Biaya: Rp {{ number_format($g->biaya,0,',','.') }}
+                {{ $g->mulai->format('d M Y') }} – {{ $g->selesai->format('d M Y') }}
+                · Biaya: Rp {{ number_format($g->biaya,0,',','.') }}
               </div>
             </div>
           </label>
@@ -42,20 +71,23 @@
 
       {{-- PILIH PRODI (WAJIB 1) --}}
       <div class="rounded-2xl bg-white p-5 shadow ring-1 ring-black/5">
-        <label class="label-sm mb-1 block">Program Studi (wajib)</label>
-        <select name="prodi_id" class="input-lg w-full">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Program Studi (wajib)</label>
+        <select name="prodi_id"
+                class="w-full rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"
+                @disabled($locked) required>
           <option value="">-- pilih program studi --</option>
           @foreach($prodiAktif as $p)
-            <option value="{{ $p->id }}" @selected(old('prodi_id', $pendaftaran->prodi_id) == $p->id)>
-              {{ $p->nama }} ({{ $p->jenjang }})
+            <option value="{{ $p->id }}" @selected((int)$selectedProdi === (int)$p->id)>
+              {{ $p->nama }} ({{ strtoupper($p->jenjang) }})
             </option>
           @endforeach
         </select>
+        <p class="mt-2 text-xs text-slate-500">Calon hanya dapat memilih <strong>1</strong> program studi.</p>
       </div>
 
       <div>
         <button class="rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700"
-                @disabled($gelombang->isEmpty())>
+                @disabled($locked || $gelombang->isEmpty())>
           Simpan
         </button>
       </div>

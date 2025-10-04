@@ -15,10 +15,12 @@ class Pendaftaran extends Model
     ];
 
     protected $casts = [
-        'biodata'      => 'array',
-        'dokumen'      => 'array',
-        'submitted_at' => 'datetime',
+    'biodata'      => 'array',
+    'dokumen'      => 'array',
+    'submitted_at' => 'datetime',
+    'verified_at'  => 'datetime',
     ];
+
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function gelombang(): BelongsTo { return $this->belongsTo(Gelombang::class); }
@@ -26,12 +28,44 @@ class Pendaftaran extends Model
     public function isDraft(): bool     { return $this->status === 'draft'; }
     public function isSubmitted(): bool { return $this->status === 'submitted'; }
 
+    public function hasBiodata(): bool
+    {
+    $b = $this->biodata ?? [];
+    return !empty($b['nik'] ?? null) || !empty($b['nama_lengkap'] ?? null);
+    }
+
     public function hasAllDocs(): bool
     {
         $d = $this->dokumen ?? [];
         return !empty($d['ktp']['path'] ?? null)
             && !empty($d['ijazah']['path'] ?? null)
             && !empty($d['pas_foto']['path'] ?? null);
+    }
+
+        /**
+     * SUBMITTED/VERIFIED => 100%. REJECTED => pakai perhitungan langkah (maks 67%).
+     */
+    public function progressPercent(): int
+    {
+    if (in_array($this->status, ['submitted','verified'], true)) {
+        return 100;
+    }
+    $stepsDone = 0;
+    if ($this->hasBiodata()) $stepsDone++;
+    if ($this->hasAllDocs()) $stepsDone++;
+    if ($this->hasChosenGelombangProdi()) $stepsDone++;
+    return (int) round(($stepsDone / 3) * 100);
+    }
+
+    /** REJECTED boleh submit ulang */
+    public function canResubmit(): bool
+    {
+    return $this->status === 'rejected';
+    }
+
+    public function hasChosenGelombangProdi(): bool
+    {
+    return !empty($this->gelombang_id) && !empty($this->prodi_id);
     }
 
     public function hasCompleteBiodata(): bool
@@ -48,6 +82,13 @@ class Pendaftaran extends Model
     public function hasChosenProdi(): bool {return !empty($this->prodi_id);}
     public function isVerified(): bool { return $this->status === 'verified'; }
     public function isRejected(): bool { return $this->status === 'rejected'; }
+
+    public function isLockedForEdits(): bool
+    {
+    return in_array($this->status, ['submitted', 'verified'], true);
+    // Jika maunya hanya saat VERIFIED:
+    // return $this->status === 'verified';
+    }
     
     public function verifiedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo {
     return $this->belongsTo(\App\Models\User::class,'verified_by');

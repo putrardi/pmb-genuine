@@ -11,26 +11,19 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $user = auth()->user();
-
-        // Buat record pendaftaran jika belum ada
         $pendaftaran = Pendaftaran::firstOrCreate(
-            ['user_id' => $user->id],
+            ['user_id' => auth()->id()],
             [
-                'no_reg'   => 'REG-' . Str::upper(Str::random(10)),
                 'status'   => 'draft',
                 'biodata'  => [],
+                'dokumen'  => [],
+                // jika kamu punya generator nomor registrasi, panggil di sini:
+                // 'no_reg' => app(\App\Domain\Pendaftaran\Services\NoRegService::class)->generate(),
             ]
         );
 
-        // Gelombang aktif hari ini
-        $today = now()->toDateString();
-        $gelombangAktif = Gelombang::where('aktif', true)
-            ->where('mulai', '<=', $today)
-            ->where('selesai', '>=', $today)
-            ->orderBy('mulai', 'desc')
-            ->first();
+        $pendaftaran->load(['user','gelombang','prodi']); // supaya view aman
 
-        return view('calon.dashboard', compact('pendaftaran', 'gelombangAktif'));
+        return view('calon.dashboard', compact('pendaftaran'));
     }
 }

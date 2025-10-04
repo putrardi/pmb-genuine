@@ -12,10 +12,19 @@ use Illuminate\Support\Facades\URL;
 
 class DokumenController extends Controller
 {
+    public function index()
+    {
+        $pendaftaran = Pendaftaran::with('user')
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        return view('calon.dokumen', compact('pendaftaran'));
+    }
+
     public function edit()
     {
         $pendaftaran = \App\Domain\Pendaftaran\Models\Pendaftaran::where('user_id', auth()->id())->firstOrFail();
-        if ($pendaftaran->isSubmitted()) {
+        if ($pendaftaran->isLockedForEdits()) {
             return redirect()->route('pendaftaran.dashboard')->with('error','Pendaftaran sudah dikirim dan tidak dapat diubah.');
         }
         $docs = $pendaftaran->dokumen ?? [];
@@ -35,67 +44,72 @@ class DokumenController extends Controller
     }
 
     public function update(DokumenRequest $request)
-    {
-        $pendaftaran = \App\Domain\Pendaftaran\Models\Pendaftaran::where('user_id', auth()->id())->firstOrFail();
-        if ($pendaftaran->isSubmitted()) {
-            return redirect()->route('pendaftaran.dashboard')->with('error','Pendaftaran sudah dikirim dan tidak dapat diubah.');
-        }
+{
+    $pendaftaran = Pendaftaran::where('user_id', auth()->id())->firstOrFail();
 
-        $dir = 'pendaftar/' . auth()->id();
-        $docs = $pendaftaran->dokumen ?? [];
-
-        foreach (['ktp','ijazah','pas_foto'] as $key) {
-            if ($request->hasFile($key)) {
-                $file = $request->file($key);
-                $ext  = strtolower($file->getClientOriginalExtension());
-                $name = $key . '_' . time() . '.' . $ext;
-                $path = $file->storeAs($dir, $name, 'private');
-
-                $docs[$key] = [
-                    'path' => $path,
-                    'name' => $file->getClientOriginalName(),
-                    'mime' => $file->getClientMimeType(),
-                    'size' => $file->getSize(),
-                    'uploaded_at' => now()->toDateTimeString(),
-                ];
-            }
-        }
-
-        $pendaftaran->dokumen = $docs;
-        $pendaftaran->save();
-
-        return back()->with('success','Dokumen berhasil diunggah.');
+    if ($pendaftaran->isLockedForEdits()) {
+        return redirect()->route('pendaftaran.dashboard')
+            ->with('error','Pendaftaran sudah dikirim dan tidak dapat diubah.');
     }
+
+    $dir  = 'pendaftar/'.auth()->id();
+    $docs = $pendaftaran->dokumen ?? [];
+
+    foreach (['ktp','ijazah','pas_foto'] as $key) {
+        if ($request->hasFile($key)) {
+            $file = $request->file($key);
+            $ext  = strtolower($file->getClientOriginalExtension());
+            $name = $key.'_'.time().'.'.$ext;
+            $path = \Storage::disk('private')->putFileAs($dir, $file, $name);
+
+            $docs[$key] = [
+                'path'        => $path,
+                'name'        => $file->getClientOriginalName(),
+                'mime'        => $file->getClientMimeType(),
+                'size'        => $file->getSize(),
+                'uploaded_at' => now()->toDateTimeString(),
+                'exists'      => true,
+            ];
+        }
+    }
+
+    $pendaftaran->dokumen = $docs;
+    $pendaftaran->save();
+
+    // >>> kembali ke dashboard-calon setelah simpan
+    return redirect()->route('pendaftaran.dashboard')->with('success','Dokumen berhasil diunggah.');
+}
 
     public function preview(Request $request, string $key)
-    {
-        if (! $request->hasValidSignature()) abort(403);
+{
+    // Untuk calon sendiri, cukup cek otentikasi & kepemilikan (tanpa signed)
+    $pendaftaran = Pendaftaran::where('user_id', auth()->id())->firstOrFail();
+    $doc = ($pendaftaran->dokumen ?? [])[$key] ?? null;
+    if (!$doc || empty($doc['path'])) abort(404);
 
-        $pendaftaran = Pendaftaran::where('user_id', auth()->id())->firstOrFail();
-        $doc = ($pendaftaran->dokumen ?? [])[$key] ?? null;
-        if (!$doc || empty($doc['path'])) abort(404);
+    $disk = \Storage::disk('private');
+    if (!$disk->exists($doc['path'])) abort(404);
 
-        $disk = Storage::disk('private');
-        if (!$disk->exists($doc['path'])) abort(404);
+    $stream = $disk->readStream($doc['path']);
+    if (!$stream) abort(404);
 
-        $stream = $disk->readStream($doc['path']);
-        if (!$stream) abort(404);
-
-        return Response::stream(function () use ($stream) {
-            fpassthru($stream);
-        }, 200, [
-            'Content-Type'        => $doc['mime'] ?? 'application/octet-stream',
-            'Content-Disposition' => 'inline; filename="'.($doc['name'] ?? basename($doc['path'])).'"',
-            'Cache-Control'       => 'private, max-age=600',
-        ]);
-    }
+    return \Response::stream(function () use ($stream) {
+        fpassthru($stream);
+    }, 200, [
+        'Content-Type'        => $doc['mime'] ?? 'application/octet-stream',
+        'Content-Disposition' => 'inline; filename="'.($doc['name'] ?? basename($doc['path'])).'"',
+        'Cache-Control'       => 'private, max-age=600',
+    ]);
+}
 
     public function destroy(string $key)
     {
-        $pendaftaran = \App\Domain\Pendaftaran\Models\Pendaftaran::where('user_id', auth()->id())->firstOrFail();
-        if ($pendaftaran->isSubmitted()) {
-            return redirect()->route('pendaftaran.dashboard')->with('error','Pendaftaran sudah dikirim dan tidak dapat diubah.');
+        $pendaftaran = Pendaftaran::where('user_id', auth()->id())->firstOrFail();
+        if ($pendaftaran->isLockedForEdits()) {
+        return redirect()->route('pendaftaran.dashboard')
+        ->with('error','Data sudah dikunci dan tidak dapat diubah lagi.');
         }
+
         $docs = $pendaftaran->dokumen ?? [];
         $doc  = $docs[$key] ?? null;
 

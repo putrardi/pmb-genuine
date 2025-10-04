@@ -22,9 +22,21 @@
       </div>
     @endif
 
-    <form method="POST" action="{{ route('calon.biodata.update') }}" class="grid grid-cols-1 gap-6 md:grid-cols-2">
-      @csrf
+     @php
+      /** @var \App\Domain\Pendaftaran\Models\Pendaftaran $pendaftaran */
+      $locked = $pendaftaran->isLockedForEdits();
+      @endphp
 
+    @if($locked)
+  <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+    Pendaftaran telah {{ strtoupper($pendaftaran->status) }} dan dikunci. Perubahan tidak diizinkan.
+  </div>
+@endif
+
+<form method="POST" action="{{ route('calon.biodata.update') }}">
+  @csrf
+  @method('POST')
+     
       {{-- PROFIL --}}
       <div class="md:col-span-2">
         <h2 class="text-lg font-semibold">Profil</h2>
@@ -112,11 +124,12 @@
         <label class="label-sm">Nilai Akhir/Rata-rata (opsional)</label>
         <input type="number" step="0.01" name="nilai_akhir" value="{{ old('nilai_akhir', $bio['nilai_akhir'] ?? '') }}" class="input-lg" />
       </div>
-
-      <div class="md:col-span-2 mt-2">
-        <button class="rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700">Simpan Biodata</button>
-        <a href="{{ route('pendaftaran.dashboard') }}" class="ml-3 rounded-xl bg-slate-200 px-4 py-2.5 font-semibold text-slate-800 hover:bg-slate-300">Kembali ke Dashboard</a>
-      </div>
-    </form>
+       <div class="mt-4">
+    <button class="rounded-xl bg-indigo-600 px-4 py-2.5 font-semibold text-white hover:bg-indigo-700"
+            @disabled($locked)>
+      Simpan Biodata
+    </button>
+  </div>
+</form>
   </div>
 </x-guest-layout>

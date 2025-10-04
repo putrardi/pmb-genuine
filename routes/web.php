@@ -13,6 +13,8 @@ use App\Http\Controllers\Verifikasi\VerifikasiController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminPendaftarController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Calon\RingkasanController;
+use App\Http\Controllers\Calon\DashboardController as CalonDashboardController;
 
 
 Route::get('/', [LandingController::class, 'index'])->name('landing');
@@ -30,7 +32,7 @@ Route::get('/post-login', function () {
 
 
 // registrasi calon mahasiswa (di halaman depan)
-Route::post('/register-calon', [LandingController::class,'register'])->name('landing.register');
+Route::post('/register-calon', [LandingController::class, 'register'])->name('register.calon');
 
 // login admin/staff (di halaman depan)
 //Route::post('/admin-login', [LandingController::class,'adminLogin'])->name('landing.admin.login');
@@ -82,35 +84,30 @@ Route::middleware(['auth','role:admin'])
         Route::resource('gelombang', GelombangController::class);
     });
 
+// Dashboard Calon + fitur-fitur calon
 Route::middleware(['auth','role:calon_mahasiswa'])->group(function () {
-    Route::get('/dashboard-calon', [DashboardController::class, 'index'])->name('pendaftaran.dashboard');
+    Route::get('/dashboard-calon', [CalonDashboardController::class, 'index'])
+        ->name('pendaftaran.dashboard');
 
-    // Wizard Step 1: Biodata
-    Route::get('/calon/biodata', [BiodataController::class, 'edit'])->name('calon.biodata.edit');
+    // Biodata
+    Route::get('/calon/biodata',  [BiodataController::class, 'edit'])->name('calon.biodata.edit');
     Route::post('/calon/biodata', [BiodataController::class, 'update'])->name('calon.biodata.update');
 
-    // Route::get('/calon/dokumen', ...)->name('calon.dokumen');
-    Route::get('/calon/dokumen', [DokumenController::class, 'edit'])->name('calon.dokumen.edit');
-    Route::post('/calon/dokumen', [DokumenController::class, 'update'])->name('calon.dokumen.update');
+    // Dokumen (HALAMAN + SIMPAN + PREVIEW + HAPUS)
+    Route::get('/calon/dokumen',               [DokumenController::class, 'index'])->name('calon.dokumen');
+    Route::post('/calon/dokumen',              [DokumenController::class, 'update'])->name('calon.dokumen.update');
+    Route::get('/calon/dokumen/preview/{key}', [DokumenController::class, 'preview'])->name('calon.dokumen.preview');
+    Route::delete('/calon/dokumen/{key}',      [DokumenController::class, 'destroy'])->name('calon.dokumen.destroy');
 
-    // preview signed
-    Route::get('/calon/dokumen/preview/{key}', [DokumenController::class, 'preview'])
-        ->name('calon.dokumen.preview')
-        ->middleware('signed');
-
-    // hapus file
-    Route::delete('/calon/dokumen/{key}', [DokumenController::class, 'destroy'])->name('calon.dokumen.destroy');
-
-    // pilih gelombang
-    Route::get('/calon/pilih-gelombang', [SubmitController::class, 'pilihGelombang'])->name('calon.pilih-gelombang');
+    // Gelombang & Prodi
+    Route::get('/calon/pilih-gelombang',  [SubmitController::class, 'pilihGelombang'])->name('calon.pilih-gelombang');
     Route::post('/calon/pilih-gelombang', [SubmitController::class, 'simpanGelombang'])->name('calon.simpan-gelombang');
 
-    // submit final
-    Route::post('/calon/submit', [SubmitController::class, 'submitFinal'])->name('calon.submit');
+    // Submit final
+    Route::post('/calon/submit', [SubmitController::class, 'submit'])->name('calon.submit-final');
 
-    // ringkasan
-    Route::get('/calon/ringkasan', [SubmitController::class, 'ringkasan'])->name('calon.ringkasan');
-
+    // Ringkasan
+    Route::get('/calon/ringkasan', [RingkasanController::class, 'show'])->name('calon.ringkasan');
 });
 
 Route::middleware(['auth','role:staff,admin'])
@@ -146,5 +143,9 @@ Route::middleware(['auth','role:staff,admin'])
     ->group(function () {
         Route::get('/pendaftar', [AdminPendaftarController::class, 'index'])->name('pendaftar.index');
     });
+
+    Route::middleware(['auth','role:calon_mahasiswa'])->group(function () {
+    Route::get('/calon/ringkasan', [RingkasanController::class, 'show'])->name('calon.ringkasan');
+});
     
 require __DIR__.'/auth.php';

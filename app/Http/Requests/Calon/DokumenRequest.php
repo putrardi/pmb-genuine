@@ -7,9 +7,11 @@ use Illuminate\Foundation\Http\FormRequest;
 class DokumenRequest extends FormRequest
 {
     public function authorize(): bool
-    {
-        return $this->user()?->role === 'calon_mahasiswa';
-    }
+{
+    $p = \App\Domain\Pendaftaran\Models\Pendaftaran::where('user_id', $this->user()->id)->first();
+    return $this->user()->role === 'calon_mahasiswa' && $p && !$p->isLockedForEdits();
+}
+
 
     public function rules(): array
     {
