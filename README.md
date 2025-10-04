@@ -1,4 +1,5 @@
 Sistem Pendaftaran Mahasiswa Baru (PMB)
+
 Sistem PMB berbasis Laravel 12 dengan dukungan multi‐role (admin, staff, calon) mencakup: pendaftaran akun calon, wizard biodata & dokumen (storage privat), pemilihan gelombang & prodi, submit & verifikasi, dashboard analitik (Chart.js), notifikasi email (Mailtrap), serta master data (Prodi, Gelombang).
 
 1) Tech Stack
